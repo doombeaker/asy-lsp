@@ -13,9 +13,21 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:json"
+    "onLanguage:asy"
   ],
   "contributes": {
+    "languages": [
+      {
+        "id": "asy",
+        "aliases": [
+          "Asymptote",
+          "asymptote"
+        ],
+        "extensions": [
+          ".asy"
+        ]
+      }
+    ],
     "commands": [
       {
         "command": "countDownBlocking",

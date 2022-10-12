@@ -33,8 +33,8 @@ function getClientOptions(): LanguageClientOptions {
     return {
         // Register the server for plain text documents
         documentSelector: [
-            { scheme: "file", language: "json" },
-            { scheme: "untitled", language: "json" },
+            { scheme: "file", language: "asy" },
+            { scheme: "untitled", language: "asy" },
         ],
         outputChannelName: "[pygls] JsonLanguageServer",
         synchronize: {
