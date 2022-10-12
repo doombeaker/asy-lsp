@@ -36,7 +36,7 @@ function getClientOptions(): LanguageClientOptions {
             { scheme: "file", language: "asy" },
             { scheme: "untitled", language: "asy" },
         ],
-        outputChannelName: "[pygls] JsonLanguageServer",
+        outputChannelName: "[pygls] AsymptoteLanguageServer",
         synchronize: {
             // Notify the server about file changes to '.clientrc files contain in the workspace
             fileEvents: workspace.createFileSystemWatcher("**/.clientrc"),
