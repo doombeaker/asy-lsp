@@ -25,7 +25,15 @@
         ],
         "extensions": [
           ".asy"
-        ]
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+          "language": "asy",
+          "scopeName": "source.asymptote",
+          "path": "./grammars/asymptote-grammar.json"
       }
     ],
     "commands": [
