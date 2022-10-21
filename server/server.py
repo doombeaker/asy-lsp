@@ -19,6 +19,8 @@ import re
 import time
 import uuid
 from typing import Optional
+from .parser.ast import FileParsed
+from pygls.uris import from_fs_path, to_fs_path
 
 from pygls.lsp.methods import (
     COMPLETION,
@@ -94,41 +96,29 @@ def defitions(
     params: DefinitionParams,
 ):
     dst_uri = params.text_document.uri
-    location = Location(
-        uri=dst_uri,
-        range=Range(
-            start=Position(line=0, character=0),
-            end=Position(line=1, character=1),
-        ),
-    )
+    if dst_uri not in parsed_files.keys():
+        _parse_file(dst_uri)
+    file = parsed_files[dst_uri]
+    line, column = params.position.line + 1, params.position.character + 1
+    pos = file.find_definiton(line, column)
 
-    location_link = LocationLink(
-        target_uri=dst_uri,
-        target_range=Range(
-            start=Position(line=0, character=0),
-            end=Position(line=1, character=1),
-        ),
-        target_selection_range=Range(
-            start=Position(line=0, character=0),
-            end=Position(line=2, character=2),
-        ),
-        origin_selection_range=Range(
-            start=Position(line=0, character=0),
-            end=Position(line=3, character=3),
-        ),
-    )
-    return location
-    # return {  # type: ignore
-    #     "file://return.location": location,
-    #     "file://return.location_list": [location],
-    #     "file://return.location_link_list": [location_link],
-    # }.get(params.text_document.uri, None)
+    if pos is not None:
+        return Location(
+            uri=dst_uri,
+            range=Range(
+                start=Position(line=pos[0] - 1, character=pos[1] - 1),
+                end=Position(line=pos[0] - 1, character=pos[1]),
+            ),
+        )
+
+    return None
 
 
 @asy_lsp_server.feature(TEXT_DOCUMENT_DID_CHANGE)
 def did_change(ls, params: DidChangeTextDocumentParams):
     """Text document did change notification."""
-    pass
+    dst_uri = params.text_document.uri
+    _parse_file(dst_uri)
 
 
 @asy_lsp_server.feature(TEXT_DOCUMENT_DID_CLOSE)
@@ -137,9 +127,23 @@ def did_close(server: AsyLspServer, params: DidCloseTextDocumentParams):
     server.show_message("Text Document Did Close")
 
 
+parsed_files = {}
+
+
+def _parse_file(file_uri):
+    file_path = to_fs_path(file_uri)
+    file = FileParsed(file_path)
+    file.parse()
+    file.construct_jump_table()
+    parsed_files[file_uri] = file
+    return file
+
+
 @asy_lsp_server.feature(TEXT_DOCUMENT_DID_OPEN)
 async def did_open(ls, params: DidOpenTextDocumentParams):
-    """Text document did open notification."""
+    file_uri = params.text_document.uri
+    if file_uri not in parsed_files.keys():
+        _parse_file(file_uri)
     ls.show_message("Text Document Did Open")
 
 

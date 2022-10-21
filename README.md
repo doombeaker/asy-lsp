@@ -1,9 +1,3 @@
-## Run
+Asy-lsp is an vscode extension for Asymptote. It provides syntax highlighting, code completion, hover, and other features.
 
-```bash
-npm install && cd client && npm install && cd ..
-```
-
-```bash
-python -m server
-```
+![](./screenshot.gif)

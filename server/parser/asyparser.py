@@ -1,8 +1,6 @@
-from ctypes.wintypes import FLOAT
 from msilib.schema import Error
 from .ply.yacc import yacc
-from .ast import Scope
-from .ast import printlog
+from .utils import printlog
 
 precedence = [
     ("right", "ASSIGN", "SELFOP"),
@@ -27,58 +25,82 @@ precedence = [
     ("right", "ELSE"),
 ]
 
+
 def p_file_1(p):
     """file : fileblock"""
     printlog("fileblock", *p[1:])
+    p[0] = p[1]
     # { absyntax::root = $1; }
 
 
 def p_fileblock_1(p):
     """fileblock :"""
     printlog("fileblock-empty", *p[1:])
+    p[0] = {"rule": "fileblock", "list": []}
     # { $$ = new file(lexerPos(), false); }
 
 
 def p_fileblock_2(p):
     """fileblock : fileblock runnable"""
     printlog("fileblock-runnable", *p[1:])
+    p[0] = p[1]
+    p[0]["list"].append(p[2])
     # { $$ = $1; $$->add($2); }
 
 
 def p_bareblock_1(p):
     """bareblock :"""
+    printlog("bareblock-empty")
+    p[0] = {"rule": "bareblock", "list": []}
     # { $$ = new block(lexerPos(), true); }
 
 
 def p_bareblock_2(p):
     """bareblock : bareblock runnable"""
+    printlog("bareblock-runnable", *p[1:])
+    p[0] = p[1]
+    p[0]["list"].append(p[2])
     # { $$ = $1; $$->add($2); }
 
 
 def p_name_1(p):
     """name : ID"""
+    printlog("name-ID", *p[1:])
+
+    p[0] = p[1]
     # { $$ = new simpleName($1.pos, $1.sym); }
 
 
 def p_name_2(p):
     """name : name '.' ID"""
+    printlog("name-name-ID", *p[1:])
+    p[3]["value"] = ".".join([p[1]["value"], p[3]["value"]])
+    p[3]["type"] = p[1]
+
+    p[0] = p[3]
+
+    p.parser.states.add_symbol(p[1])
     # { $$ = new qualifiedName($2, $1, $3.sym); }
 
 
 def p_name_3(p):
     """name : '%'"""
+    printlog("name-%")
     # { $$ = new simpleName($1.pos,
     #                                   symbol::trans("operator answer")); }
 
 
 def p_runnable_1(p):
     """runnable : dec"""
+    printlog("runnable-dec", *p[1:])
+    p[0] = p[1]
     # { $$ = $1; }
 
 
 def p_runnable_2(p):
     """runnable : stm"""
     printlog("runnable-stm", *p[1:])
+    p[0] = p[1]
     # { $$ = $1; }
 
 
@@ -133,7 +155,7 @@ def p_dec_4(p):
 
 
 def p_dec_5(p):
-    """dec : FROM name UNRAVEL idpairlist ';' """
+    """dec : FROM name UNRAVEL idpairlist ';'"""
     printlog("FROM-NAME-UNRAVEL-IDPAIRLIST")
     # { $$ = new unraveldec($1, $2, $4); }
 
@@ -161,6 +183,8 @@ def p_dec_9(p):
 
 def p_dec_10(p):
     """dec : IMPORT stridpair ';'"""
+    printlog("IMPORT-stridpair", *p[1:])
+    p[0] = p[2]
     # { $$ = new importdec($1, $2); }
 
 
@@ -196,57 +220,83 @@ def p_idpairlist_2(p):
 
 def p_strid_1(p):
     """strid : ID"""
+    p[0] = p[1]
     # { $$ = $1; }
 
 
 def p_strid_2(p):
     """strid : STRING"""
+    p[0] = p[1]
     # { $$.pos = $1->getPos();
     #                      $$.sym = symbol::literalTrans($1->getString()); }
 
 
 def p_stridpair_1(p):
     """stridpair : ID"""
+    p[1]["type"] = "MODULE"
+    p[0] = {"rule": "stridpair-id", "list": [p[1]]}
+
+    p.parser.states.add_symbol(p[1])
     # { $$ = new idpair($1.pos, $1.sym); }
 
 
 def p_stridpair_2(p):
     """stridpair : strid ID ID"""
+    p[1]["type"] = "MODULE"
+    p[3]["type"] = p[1]
+    p[0] = {"rule": "stridpair-id-id", "list": [p[1], p[3]]}
+
+    # add to symbole table
+    p.parser.states.add_symbol(p[1], p[3])
     # { $$ = new idpair($1.pos, $1.sym, $2.sym , $3.sym); }
 
 
 def p_stridpairlist_1(p):
     """stridpairlist : stridpair"""
+    p[0] = p[1]
     # { $$ = new idpairlist(); $$->add($1); }
 
 
 def p_stridpairlist_2(p):
     """stridpairlist : stridpairlist ',' stridpair"""
+    p[0] = p[1]
+    p[0]["list"].append(p[3])
     # { $$ = $1; $$->add($3); }
 
 
 def p_vardec_1(p):
     """vardec : barevardec ';'"""
+    p[0] = p[1]
     # { $$ = $1; }
 
 
 def p_barevardec_1(p):
     """barevardec : type decidlist"""
+    printlog("barevardec", *p[1:])
+    p[1]["type"] = "TYPE"
+    for item in p[2]:
+        item["type"] = p[1]
+        p.parser.states.add_symbol(item)
     # { $$ = new vardec($1->getPos(), $1, $2); }
+
+    p.parser.states.add_symbol(p[1])
 
 
 def p_type_1(p):
     """type : celltype"""
+    p[0] = p[1]
     # { $$ = $1; }
 
 
 def p_type_2(p):
     """type : name dims"""
+    p[0] = p[1]
     # { $$ = new arrayTy($1, $2); }
 
 
 def p_celltype_1(p):
     """celltype : name"""
+    p[0] = p[1]
     # { $$ = new nameTy($1); }
 
 
@@ -272,42 +322,53 @@ def p_dimexps_2(p):
 
 def p_decidlist_1(p):
     """decidlist : decid"""
+    p[0] = [p[1]]
     # { $$ = new decidlist($1->getPos()); $$->add($1); }
 
 
 def p_decidlist_2(p):
     """decidlist : decidlist ',' decid"""
+    p[0] = p[1]
+    p[0].append(p[3])
     # { $$ = $1; $$->add($3); }
 
 
 def p_decid_1(p):
     """decid : decidstart"""
+    p[0] = p[1]
     # { $$ = new decid($1->getPos(), $1); }
 
 
 def p_decid_2(p):
     """decid : decidstart ASSIGN varinit"""
+    p[0] = p[1]
     # { $$ = new decid($1->getPos(), $1, $3); }
 
 
 def p_decidstart_1(p):
     """decidstart : ID"""
+    p[0] = p[1]
     # { $$ = new decidstart($1.pos, $1.sym); }
 
 
 def p_decidstart_2(p):
     """decidstart : ID dims"""
+    p[0] = p[1]
     # { $$ = new decidstart($1.pos, $1.sym, $2); }
 
 
 def p_decidstart_3(p):
     """decidstart : ID '(' ')'"""
+    p[1]["type"] = "FUNCTION"
+    p[0] = p[1]
     # { $$ = new fundecidstart($1.pos, $1.sym, 0,
     #                                             new formals($2)); }
 
 
 def p_decidstart_4(p):
     """decidstart : ID '(' formals ')'"""
+    p[1]["type"] = "FUNCTION"
+    p[0] = p[1]
     # { $$ = new fundecidstart($1.pos, $1.sym, 0, $3); }
 
 
@@ -323,6 +384,7 @@ def p_varinit_2(p):
 
 def p_block_1(p):
     """block : '{' bareblock '}'"""
+    p[0] = p[2]
     # { $$ = $2; }
 
 
@@ -374,21 +436,27 @@ def p_varinits_2(p):
 
 def p_formals_1(p):
     """formals : formal"""
+    p[0] = [p[1]]
     # { $$ = new formals($1->getPos()); $$->add($1); }
 
 
 def p_formals_2(p):
     """formals : ELLIPSIS formal"""
+    p[0] = [p[1]]
     # { $$ = new formals($1); $$->addRest($2); }
 
 
 def p_formals_3(p):
     """formals : formals ',' formal"""
+    p[0] = p[1]
+    p[0].append(p[3])
     # { $$ = $1; $$->add($3); }
 
 
 def p_formals_4(p):
     """formals : formals ELLIPSIS formal"""
+    p[0] = p[1]
+    p[0].append(p[3])
     # { $$ = $1; $$->addRest($3); }
 
 
@@ -404,16 +472,29 @@ def p_explicitornot_2(p):
 
 def p_formal_1(p):
     """formal : explicitornot type"""
+    p[0] = p[2]
+    p[2]["type"] = "PARA_TYPE"
+    p.parser.states.add_symbol(p[2])
     # { $$ = new formal($2->getPos(), $2, 0, 0, $1, 0); }
 
 
 def p_formal_2(p):
     """formal : explicitornot type decidstart"""
+    p[2]["type"] = "PARA_TYPE"
+    p[3]["type"] = "PARAMETER"
+    p[0] = p[2]
+
+    p.parser.states.add_symbol(p[2], p[3])
     # { $$ = new formal($2->getPos(), $2, $3, 0, $1, 0); }
 
 
 def p_formal_3(p):
     """formal : explicitornot type decidstart ASSIGN varinit"""
+    p[2]["type"] = "PARA_TYPE"
+    p[3]["type"] = p[2]
+    p[0] = p[2]
+
+    p.parser.states.add_symbol(p[2], p[3])
     # { $$ = new formal($2->getPos(), $2, $3, $5, $1, 0); }
 
 
@@ -431,11 +512,21 @@ def p_formal_5(p):
 
 def p_fundec_1(p):
     """fundec : type ID '(' ')' blockstm"""
+    p[1]["type"] = "RETURN"
+    p[2]["type"] = "FUNCTION"
+
+    p[0] = p[2]
+
+    p.parser.states.add_symbol(p[1], p[2])
     # { $$ = new fundec($3, $1, $2.sym, new formals($3), $5); }
 
 
 def p_fundec_2(p):
     """fundec : type ID '(' formals ')' blockstm"""
+    p[1]["type"] = "RETURN"
+    p[2]["type"] = "FUNCTION"
+    p[0] = p[2]
+    p.parser.states.add_symbol(p[1], p[2])
     # { $$ = new fundec($3, $1, $2.sym, $4, $6); }
 
 
@@ -577,11 +668,17 @@ def p_tuple_2(p):
 
 def p_exp_1(p):
     """exp : name"""
+    printlog("exp-name:", *p[1:])
+    # p[1]["type"] = "NAME"
+    p[0] = p[1]
+
     # { $$ = new nameExp($1->getPos(), $1); }
 
 
 def p_exp_2(p):
     """exp : value"""
+    printlog("exp-name:", *p[1:])
+    p[0] = p[1]
     # { $$ = $1; }
 
 
@@ -946,7 +1043,8 @@ def p_stm_1(p):
 
 def p_stm_2(p):
     """stm : blockstm"""
-    printlog("stm-blockstm")
+    printlog("stm-blockstm", *p[1:])
+    p[0] = p[1]
     # { $$ = $1; }
 
 
@@ -1015,6 +1113,8 @@ def p_stmexp_1(p):
 
 def p_blockstm_1(p):
     """blockstm : block"""
+    printlog("blockstm-block", *p[1:])
+    p[0] = p[1]
     # { $$ = new blockStm($1->getPos(), $1); }
 
 
