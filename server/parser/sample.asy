@@ -1,12 +1,6 @@
-void myfun(real x, real){
-  int z, w;
-  half [] www = {1, 2, 3};
-  {
-    void foo(float, double, bbb zzz){
-      www + 5;
-      z - 3;
-      w -7;
-      zzz * 10;
-    }
-  }
-}
+real rsize = 0.7;
+real shiftUnit = 3;
+pen fillblockpen = RGB(173,215,255);
+pen notexistpen = dashed;
+
+a = notexistpen + 5;

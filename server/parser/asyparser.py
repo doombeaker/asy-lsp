@@ -1,7 +1,123 @@
 from msilib.schema import Error
 from .ply.yacc import yacc
 from .utils import printlog
-from .ast import Scope
+
+
+#   符号表
+# 1. 有缩进关系的 Block，是父子关系
+# 2. 并列关系的 Block， 是兄弟关系
+
+# { // B1                             B1
+#     { // B2                        /  \
+#                                  B2  -> B3
+#     }                                    \
+#                                          B4
+#     { // B3
+#         {  // B4
+#
+#         }
+#     }
+# }
+
+
+class Scope(object):
+    def __init__(
+        self,
+        start: tuple = (1, 1),
+        end: tuple = (-1, -1),
+        depth=-1,
+        parent=None,
+        prev=None,
+        next=None,
+    ) -> None:
+        self.symbols = {}
+        self.start = start
+        self.end = end
+        self.depth = depth
+
+        # link the scopes
+        self.parent = parent  # parent scope
+        self.prev = prev  # prev block scope in same depth
+        self.next = next  # next block scope in same depth
+
+        if self.prev:
+            self.prev.next = self
+
+    def add_symbol(self, *tokens):
+        for token in tokens:
+            if token is not None:
+                self.symbols[token["position"]] = token
+
+    def pop_symbol(self, *tokens):
+        for token in tokens:
+            if token is not None:
+                self.symbols.pop(token["position"])
+
+    def is_in_scope(self, pos: tuple):
+        if (
+            self.start[0] <= pos[0] <= self.end[0]
+            and self.start[1] <= pos[1] <= self.end[1]
+        ):
+            return True
+
+        return False
+
+    def __repr__(self) -> str:
+        return f"<Scope DEPTH:{self.depth} ({self.start}~{self.end}) SYMBOLS: {[(v['position'],v['value'], v['type']) for v in self.symbols.values()]}>"
+
+
+class Scopes(object):
+    def __init__(self) -> None:
+        self.scopes = []
+        self.current_scope = None  # the top scope
+        self.last_scopes = {}  # the last scope at each depth ( right after '}' )
+        self.unused_scopes = []
+        self.depth_symbols = {}
+
+        self.scope_depth = 0  # depth of global scope is 0
+        self.last_scopes[self.scope_depth] = None
+        self.push_scope(Scope(depth=self.scope_depth))
+        self.global_scope = self.current_scope
+
+    def add_symbol(self, *tokens):
+        if self.current_scope is None:
+            self.global_scope.add_symbol(*tokens)
+        self.current_scope.add_symbol(*tokens)
+        # self._add_to_depth_symbols(self.scope_depth, symbol)
+
+    def push_scope(self, scope):
+        self.scopes.append(scope)
+        self.current_scope = scope
+
+    def pop_scope(self):
+        self.unused_scopes.append(self.scopes.pop())
+        if len(self.scopes) > 0:
+            self.current_scope = self.scopes[-1]
+        else:
+            self.current_scope = None
+
+    # def revert_scope(self):
+    #     self.scopes.append(self.unused_scopes.pop())
+    #     self.current_scope = self.scopes[-1]
+
+    # def _add_to_depth_symbols(self, depth, value):
+    #     depth_symbols = self.depth_symbols
+    #     value["depth"] = depth
+    #     if value["type"] == "PARAMETER" or value["type"] == "PARA_TYPE":
+    #         value[
+    #             "depth"
+    #         ] += 1  # depth of parameter is 1 more than the depth of the function
+    #     key = value["depth"]
+    #     if key not in depth_symbols.keys():
+    #         depth_symbols[key] = []
+    #     depth_symbols[key].append(value)
+
+    #     if type(value["type"]) is not str:
+    #         value["type"] = "ID"
+
+    def __repr__(self):
+        return f"\nself.scopes:\n{self.scopes}\nself.unused_scoes:\n{self.unused_scopes}\nself.global_scope:{self.global_scope}"
+
 
 precedence = [
     ("right", "ASSIGN", "SELFOP"),
@@ -64,8 +180,10 @@ def p_bareblock_2(p):
 def p_name_1(p):
     """name : ID"""
     printlog("name-ID", *p[1:])
-
+    p[1]["scope"] = p.parser.states.scopes.current_scope
     p[0] = p[1]
+
+    p.parser.states.scopes.current_scope.add_symbol(p[1])
     # { $$ = new simpleName($1.pos, $1.sym); }
 
 
@@ -271,7 +389,9 @@ def p_vardec_1(p):
 
 def p_barevardec_1(p):
     """barevardec : type decidlist"""
-    printlog("barevardec", *p[1:])
+    printlog(
+        "barevardec", *p[1:], "current scope", p.parser.states.scopes.current_scope
+    )
     p[1]["type"] = "TYPE"
     for item in p[2]:
         item["type"] = "VAR"
@@ -380,6 +500,7 @@ def p_varinit_2(p):
     """varinit : arrayinit"""
     # { $$ = $1; }
 
+
 def p_block_begin(p):
     """block_begin : '{'"""
     scopes = p.parser.states.scopes
@@ -399,6 +520,7 @@ def p_block_begin(p):
     )
     scopes.push_scope(new_scope)
 
+
 def p_block_end(p):
     """block_end : '}'"""
     # update last scope in the same level
@@ -407,6 +529,7 @@ def p_block_end(p):
     scopes.current_scope.end = p[1]["position"]
     scopes.last_scopes[scopes.scope_depth] = scopes.current_scope
     scopes.pop_scope()
+
 
 def p_block_1(p):
     """block : block_begin bareblock block_end"""
@@ -515,7 +638,7 @@ def p_formal_2(p):
 def p_formal_3(p):
     """formal : explicitornot type decidstart ASSIGN varinit"""
     p[2]["type"] = "PARA_TYPE"
-    #p[3]["type"] = p[2]
+    # p[3]["type"] = p[2]
     p[0] = (p[2], p[3])
     # { $$ = new formal($2->getPos(), $2, $3, $5, $1, 0); }
 
@@ -544,11 +667,11 @@ def p_fundec_1(p):
 
 
 def p_fundec_2(p):
-    """fundec : type ID '(' formals ')' blockstm"""
+    """fundec : type ID '(' formals ')' blockstm"""  # 得在 blockstm 时添加items
     p[1]["type"] = "TYPE"
     p[2]["type"] = "FUNCTION"
     p[0] = p[2]
-    #import pdb; pdb.set_trace()
+
     p.parser.states.add_symbol(p[1], p[2])
 
     # function paramters belongs to <blockstm> scope
@@ -1116,6 +1239,7 @@ def p_stm_8(p):
 
 def p_stm_9(p):
     """stm : FOR '(' type ID ':' exp ')' stm"""
+    p[4]["scope"] = p.parser.scopes.current_scope
     # { $$ = new extendedForStm($1, $3, $4.sym, $6, $8); }
 
 
