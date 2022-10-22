@@ -48,7 +48,7 @@ class FileParsed(object):
     def construct_jump_table(self):
         for token in self.all_tokens:
             if token["type"] == "ID":
-                import pdb; pdb.set_trace()
+                #import pdb; pdb.set_trace()
                 dec = self._find_dec(token)
                 if dec is not None:
                     printlog("Declaration of %s is at %s" % (token, dec["position"]))
