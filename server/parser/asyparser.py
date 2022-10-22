@@ -648,7 +648,7 @@ def p_fundec_1(p):
 
 
 def p_fundec_2(p):
-    """fundec : type ID '(' formals ')' blockstm"""  # 得在 blockstm 时添加items
+    """fundec : type ID '(' formals ')' blockstm"""
     p[1]["type"] = "TYPE"
     p[2]["type"] = "FUNCTION"
     p[0] = p[2]
@@ -1303,5 +1303,5 @@ def p_stmexplist_2(p):
 
 # Error rule for syntax errors
 def p_error(p):
-    print(f"Syntax error at {p.value!r}, line:{p.lexer.lineno}")
-    raise Error("Stop")
+    print(f"Syntax error at line:{p.lexer.lineno}")
+    #raise Error("Stop")
