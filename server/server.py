@@ -77,6 +77,15 @@ class AsyLspServer(LanguageServer):
 
     def __init__(self):
         super().__init__()
+        self.parsed_files = {}
+
+    def parse_file(self, file_uri):
+        file_path = to_fs_path(file_uri)
+        file = FileParsed(file_path)
+        file.parse()
+        file.construct_jump_table()
+        self.parsed_files[file_uri] = file
+        return file
 
 
 asy_lsp_server = AsyLspServer()
@@ -96,9 +105,9 @@ def defitions(
     params: DefinitionParams,
 ):
     dst_uri = params.text_document.uri
-    if dst_uri not in parsed_files.keys():
-        _parse_file(dst_uri)
-    file = parsed_files[dst_uri]
+    if dst_uri not in asy_lsp_server.parsed_files.keys():
+        asy_lsp_server.parse_file(dst_uri)
+    file = asy_lsp_server.parsed_files[dst_uri]
     line, column = params.position.line + 1, params.position.character + 1
     pos = file.find_definiton(line, column)
 
@@ -125,18 +134,6 @@ def did_change(ls, params: DidChangeTextDocumentParams):
 def did_close(server: AsyLspServer, params: DidCloseTextDocumentParams):
     """Text document did close notification."""
     server.show_message("Text Document Did Close")
-
-
-parsed_files = {}
-
-
-def _parse_file(file_uri):
-    file_path = to_fs_path(file_uri)
-    file = FileParsed(file_path)
-    file.parse()
-    file.construct_jump_table()
-    parsed_files[file_uri] = file
-    return file
 
 
 @asy_lsp_server.feature(TEXT_DOCUMENT_DID_OPEN)

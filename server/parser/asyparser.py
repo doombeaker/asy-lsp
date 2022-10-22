@@ -53,15 +53,6 @@ class Scope(object):
             if token is not None:
                 self.symbols.pop(token["position"])
 
-    def is_in_scope(self, pos: tuple):
-        if (
-            self.start[0] <= pos[0] <= self.end[0]
-            and self.start[1] <= pos[1] <= self.end[1]
-        ):
-            return True
-
-        return False
-
     def __repr__(self) -> str:
         return f"<Scope DEPTH:{self.depth} ({self.start}~{self.end}) SYMBOLS: {[(v['position'],v['value'], v['type']) for v in self.symbols.values()]}>"
 
@@ -1304,4 +1295,4 @@ def p_stmexplist_2(p):
 # Error rule for syntax errors
 def p_error(p):
     print(f"Syntax error at line:{p.lexer.lineno}")
-    #raise Error("Stop")
+    # raise Error("Stop")
