@@ -217,7 +217,7 @@ def t_ID(t):
         "value": t.value,
         "position": (line, column),
         "len": len(t.value),
-        "type": "ID",
+        "type": t.type,
     }
     if hasattr(t.lexer, "states"):
         t.value["scope"] = t.lexer.states.scopes.current_scope
