@@ -1,6 +1,7 @@
 from msilib.schema import Error
 from .ply.yacc import yacc
 from .utils import printlog
+from .ast import Scope
 
 precedence = [
     ("right", "ASSIGN", "SELFOP"),
@@ -50,16 +51,13 @@ def p_fileblock_2(p):
 
 def p_bareblock_1(p):
     """bareblock :"""
-    printlog("bareblock-empty")
-    p[0] = {"rule": "bareblock", "list": []}
-    # { $$ = new block(lexerPos(), true); }
+    printlog("bareblock-empty,scope:", p.parser.states.scopes.current_scope)
+    p[0] = p.parser.states.scopes.current_scope
 
 
 def p_bareblock_2(p):
     """bareblock : bareblock runnable"""
-    printlog("bareblock-runnable", *p[1:])
-    p[0] = p[1]
-    p[0]["list"].append(p[2])
+    p[0] = p.parser.states.scopes.current_scope
     # { $$ = $1; $$->add($2); }
 
 
@@ -220,6 +218,7 @@ def p_idpairlist_2(p):
 
 def p_strid_1(p):
     """strid : ID"""
+
     p[0] = p[1]
     # { $$ = $1; }
 
@@ -234,7 +233,7 @@ def p_strid_2(p):
 def p_stridpair_1(p):
     """stridpair : ID"""
     p[1]["type"] = "MODULE"
-    p[0] = {"rule": "stridpair-id", "list": [p[1]]}
+    p[0] = p[1]
 
     p.parser.states.add_symbol(p[1])
     # { $$ = new idpair($1.pos, $1.sym); }
@@ -275,7 +274,7 @@ def p_barevardec_1(p):
     printlog("barevardec", *p[1:])
     p[1]["type"] = "TYPE"
     for item in p[2]:
-        item["type"] = p[1]
+        item["type"] = "VAR"
         p.parser.states.add_symbol(item)
     # { $$ = new vardec($1->getPos(), $1, $2); }
 
@@ -381,9 +380,36 @@ def p_varinit_2(p):
     """varinit : arrayinit"""
     # { $$ = $1; }
 
+def p_block_begin(p):
+    """block_begin : '{'"""
+    scopes = p.parser.states.scopes
+    # save last scope
+    if scopes.scope_depth not in scopes.last_scopes.keys():
+        scopes.last_scopes[scopes.scope_depth] = None
+    prev = scopes.last_scopes[scopes.scope_depth]
+
+    # create new scope
+    scopes.scope_depth += 1
+    new_scope = Scope(
+        start=p[1]["position"],
+        depth=scopes.scope_depth,
+        parent=scopes.current_scope,
+        prev=prev,
+        next=None,
+    )
+    scopes.push_scope(new_scope)
+
+def p_block_end(p):
+    """block_end : '}'"""
+    # update last scope in the same level
+    scopes = p.parser.states.scopes
+    scopes.scope_depth -= 1
+    scopes.current_scope.end = p[1]["position"]
+    scopes.last_scopes[scopes.scope_depth] = scopes.current_scope
+    scopes.pop_scope()
 
 def p_block_1(p):
-    """block : '{' bareblock '}'"""
+    """block : block_begin bareblock block_end"""
     p[0] = p[2]
     # { $$ = $2; }
 
@@ -474,7 +500,7 @@ def p_formal_1(p):
     """formal : explicitornot type"""
     p[0] = p[2]
     p[2]["type"] = "PARA_TYPE"
-    p.parser.states.add_symbol(p[2])
+    p[0] = (p[2], None)
     # { $$ = new formal($2->getPos(), $2, 0, 0, $1, 0); }
 
 
@@ -482,19 +508,15 @@ def p_formal_2(p):
     """formal : explicitornot type decidstart"""
     p[2]["type"] = "PARA_TYPE"
     p[3]["type"] = "PARAMETER"
-    p[0] = p[2]
-
-    p.parser.states.add_symbol(p[2], p[3])
+    p[0] = (p[2], p[3])
     # { $$ = new formal($2->getPos(), $2, $3, 0, $1, 0); }
 
 
 def p_formal_3(p):
     """formal : explicitornot type decidstart ASSIGN varinit"""
     p[2]["type"] = "PARA_TYPE"
-    p[3]["type"] = p[2]
-    p[0] = p[2]
-
-    p.parser.states.add_symbol(p[2], p[3])
+    #p[3]["type"] = p[2]
+    p[0] = (p[2], p[3])
     # { $$ = new formal($2->getPos(), $2, $3, $5, $1, 0); }
 
 
@@ -523,10 +545,21 @@ def p_fundec_1(p):
 
 def p_fundec_2(p):
     """fundec : type ID '(' formals ')' blockstm"""
-    p[1]["type"] = "RETURN"
+    p[1]["type"] = "TYPE"
     p[2]["type"] = "FUNCTION"
     p[0] = p[2]
+    #import pdb; pdb.set_trace()
     p.parser.states.add_symbol(p[1], p[2])
+
+    # function paramters belongs to <blockstm> scope
+    for type, param in p[4]:
+        printlog("param", type, param)
+        type["scope"] = p[6]
+        type["type"] = "TYPE"
+        if param is not None:
+            param["scope"] = p[6]
+            param["type"] = "PARAMETER"
+        p[6].add_symbol(type, param)
     # { $$ = new fundec($3, $1, $2.sym, $4, $6); }
 
 

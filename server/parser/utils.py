@@ -1,6 +1,6 @@
 import os
 
-DEBUG = False
+DEBUG = True
 
 
 def traverse_dir_files(root_dir, ext=None):

@@ -1,18 +1,12 @@
-int x, y;
-import graph;
-
-y = x + 10;
-int w = y + x;
-
-{
-  int x, y;
-  x + 10;
-  y - 5;
-  z;
-
-  void myfun(){
-
+void myfun(real x, real){
+  int z, w;
+  half [] www = {1, 2, 3};
+  {
+    void foo(float, double, bbb zzz){
+      www + 5;
+      z - 3;
+      w -7;
+      zzz * 10;
+    }
   }
-
-  myfun();
 }
