@@ -1,38 +1,6 @@
 from .ply.lex import lex
 
 
-class Scope(object):
-    def __init__(self, start: tuple = (1, 1), end: tuple = (-1, -1), depth=-1) -> None:
-        self.symbols = {}
-        self.start = start
-        self.end = end
-        self.depth = depth
-
-    def add_symbol(self, position, symbol):
-        self.symbols[position] = symbol
-
-    def is_symbol_in_scope(self, symbol):
-        for pos, sym in self.symbols.items():
-            if sym["value"] == symbol["value"]:
-                self.add_symbol(symbol["position"], symbol)
-                symbol["position"] = sym["position"]
-                symbol["type"] = sym["type"]
-                return True
-        return False
-
-    def is_in_scope(self, pos: tuple):
-        if (
-            self.start[0] <= pos[0] <= self.end[0]
-            and self.start[1] <= pos[1] <= self.end[1]
-        ):
-            return True
-
-        return False
-
-    def __repr__(self) -> str:
-        return f"<Scope DEPTH:{self.depth} ({self.start}~{self.end}) SYMBOLS: {self.symbols}>"
-
-
 def _find_column(input, token):
     line_start = input.rfind("\n", 0, token.lexpos) + 1
     return (token.lexpos - line_start) + 1
@@ -249,10 +217,10 @@ def t_ID(t):
         "value": t.value,
         "position": (line, column),
         "len": len(t.value),
-        "type": "ID",
+        "type": t.type,
     }
     if hasattr(t.lexer, "states"):
-        t.value["depth"] = t.lexer.states.scopes.scope_depth
+        t.value["scope"] = t.lexer.states.scopes.current_scope
         t.lexer.states.all_tokens.append(t.value)
     return t
 
@@ -269,9 +237,6 @@ def t_lbrace(t):
         "type": None,
     }
     if hasattr(t.lexer, "states"):
-        scopes = t.lexer.states.scopes
-        scopes.scope_depth += 1
-        scopes.push_scope(Scope(start=(line, column), depth=scopes.scope_depth))
         t.lexer.states.all_tokens.append(t.value)
     return t
 
@@ -289,9 +254,6 @@ def t_rbrace(t):
     }
     if hasattr(t.lexer, "states"):
         scopes = t.lexer.states.scopes
-        scopes.scope_depth -= 1
-        scopes.current_scope.end = (line, column)
-        scopes.pop_scope()
         t.lexer.states.all_tokens.append(t.value)
     return t
 

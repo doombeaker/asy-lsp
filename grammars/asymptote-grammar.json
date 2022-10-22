@@ -41,26 +41,30 @@
             "name": "comment.block"
         },
         {
-            "match": "\\s+\"(.*)\"",
-            "name": "string.quoted.double"
-        },
-        {
-            "begin": "(?<!\\s)\"{1}",
-            "end": "\"{1}",
-            "name": "string.quoted.double",
-            "patterns": [
-                {
-                    "include": "text.tex.latex"
-                }
-            ]
-        },
-        {
-            "match": "\\'.*?\\'",
-            "name": "string.quoted.single"
-        },
-        {
             "match": "\\b(if|else|while|for|do|break|return|continue|unravel)\\b",
             "name": "keyword.control"
+        },
+        {
+            "begin": "\"",
+            "end": "\"",
+            "patterns": [
+                {
+                    "match": "(\\\\.|[^\"\\\\])*",
+                    "name": "string.quoted.double"
+                }
+            ],
+            "name": "string.quoted.double"            
+        },
+        {
+            "begin": "'",
+            "end": "'",
+            "patterns": [
+                {
+                    "match": "(\\\\.|[^'\\\\])*",
+                    "name": "string.quoted.single"
+                }
+            ],
+            "name": "string.quoted.single"            
         },
         {
             "match": "\\b(new|cast|ecast|init)\\b",
