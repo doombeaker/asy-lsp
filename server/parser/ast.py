@@ -1,3 +1,4 @@
+from tkinter.tix import Tree
 from .asylexer import *
 from .asyparser import *
 from .utils import traverse_dir_files, printlog
@@ -31,28 +32,12 @@ class FileParsed(object):
                 return current_line_dict[key]
         return None
 
-    def _find_dec(self, token):
-        if "scope" in token.keys():
-            scope = token["scope"]
-            while scope is not None:
-                for pos, item in scope.symbols.items():
-                    if item["value"] == token["value"] and (
-                        item["type"] in ["VAR", "FUNCTION", "PARAMETER"]
-                    ):
-                        return item
-                scope = scope.parent
-        else:
-            return None
-
     def construct_jump_table(self):
         for token in self.all_tokens:
             if token["type"] == "ID":
-                # import pdb; pdb.set_trace()
-                dec = self._find_dec(token)
+                dec = self.scopes._find_dec(token)
                 if dec is not None:
-                    printlog(
-                        f"Declaration of ({token['value']}, {token['position']}) is at {dec['position']}"
-                    )
+                    printlog("Declaration of %s is at %s" % (token, dec["position"]))
                     line, column_start = token["position"]
                     column_end = column_start + token["len"]
                     if line not in self.jump_table.keys():
@@ -60,9 +45,7 @@ class FileParsed(object):
                     current_line = self.jump_table[line]
                     current_line[(column_start, column_end)] = dec["position"]
                 else:
-                    printlog(
-                        f"Declaration of ({token['value']}, {token['position']}) not found"
-                    )
+                    printlog("Declaration of %s not found" % token)
         return self.jump_table
 
     def add_file(self, id):
@@ -74,7 +57,8 @@ class FileParsed(object):
             raise "Invalid type. Expected str or dict, got %s" % type(id)
 
     def add_symbol(self, *tokens):
-        self.scopes.add_symbol(*tokens)
+        for token in tokens:
+            self.scopes.add_symbol(token["position"], token)
 
     def parse(self) -> None:
         r"""
@@ -88,12 +72,72 @@ class FileParsed(object):
         return f"AST: {self.ast}\n\nTokens: {self.lexer.states.all_tokens}\n\nScopes: {self.scopes}\n\nImported files: {self.imported_files}"
 
 
+class Scopes(object):
+    def __init__(self) -> None:
+        self.scopes = []
+        self.current_scope = None
+        self.unused_scopes = []
+        self.depth_symbols = {}
+
+        self.scope_depth = 0  # depth of global scope is 0
+        self.push_scope(Scope(depth=self.scope_depth))
+        self.global_scope = self.current_scope
+
+    def add_symbol(self, position, symbol):
+        if self.current_scope is None:
+            self.global_scope.add_symbol(position, symbol)
+        self.current_scope.add_symbol(position, symbol)
+        self._add_to_depth_symbols(self.scope_depth, symbol)
+
+    def push_scope(self, scope):
+        self.scopes.append(scope)
+        self.current_scope = scope
+
+    def pop_scope(self):
+        self.unused_scopes.append(self.scopes.pop())
+        if len(self.scopes) > 0:
+            self.current_scope = self.scopes[-1]
+        else:
+            self.current_scope = None
+
+    def revert_scope(self):
+        self.scopes.append(self.unused_scopes.pop())
+        self.current_scope = self.scopes[-1]
+
+    def _find_dec(self, token):
+        begin_depth = token["depth"]
+        while begin_depth >= 0:
+            for symbol in self.depth_symbols[begin_depth]:
+                if symbol["value"] == token["value"]:
+                    return symbol
+            begin_depth -= 1
+        return None
+
+    def _add_to_depth_symbols(self, depth, value):
+        depth_symbols = self.depth_symbols
+        value["depth"] = depth
+        if value["type"] == "PARAMETER" or value["type"] == "PARA_TYPE":
+            value[
+                "depth"
+            ] += 1  # depth of parameter is 1 more than the depth of the function
+        key = value["depth"]
+        if key not in depth_symbols.keys():
+            depth_symbols[key] = []
+        depth_symbols[key].append(value)
+
+        if type(value["type"]) is not str:
+            value["type"] = "ID"
+
+    def __repr__(self):
+        return f"\nself.scopes:\n{self.scopes}\nself.unused_scoes:\n{self.unused_scopes}\nself.global_scope:{self.global_scope}"
+
+
 def run_parser(file_path):
     file = FileParsed(file_path)
     file.parse()
     printlog(file)
     jumptable = file.construct_jump_table()
-    # print(jumptable)
+    print(jumptable)
 
 
 def run_lex(filepath):
@@ -125,8 +169,4 @@ def run_lex_and_parser(filepath):
 
 
 if __name__ == "__main__":
-    import os
-
-    filepath = os.path.join(os.path.dirname(__file__), "sample.asy")
-    run_parser(filepath)
     # run_test_on_base()

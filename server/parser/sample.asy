@@ -1,6 +1,18 @@
-real rsize = 0.7;
-real shiftUnit = 3;
-pen fillblockpen = RGB(173,215,255);
-pen notexistpen = dashed;
+int x, y;
+import graph;
 
-a = notexistpen + 5;
+y = x + 10;
+int w = y + x;
+
+{
+  int x, y;
+  x + 10;
+  y - 5;
+  z;
+
+  void myfun(){
+
+  }
+
+  myfun();
+}
