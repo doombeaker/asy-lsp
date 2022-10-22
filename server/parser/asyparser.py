@@ -96,25 +96,6 @@ class Scopes(object):
         else:
             self.current_scope = None
 
-    # def revert_scope(self):
-    #     self.scopes.append(self.unused_scopes.pop())
-    #     self.current_scope = self.scopes[-1]
-
-    # def _add_to_depth_symbols(self, depth, value):
-    #     depth_symbols = self.depth_symbols
-    #     value["depth"] = depth
-    #     if value["type"] == "PARAMETER" or value["type"] == "PARA_TYPE":
-    #         value[
-    #             "depth"
-    #         ] += 1  # depth of parameter is 1 more than the depth of the function
-    #     key = value["depth"]
-    #     if key not in depth_symbols.keys():
-    #         depth_symbols[key] = []
-    #     depth_symbols[key].append(value)
-
-    #     if type(value["type"]) is not str:
-    #         value["type"] = "ID"
-
     def __repr__(self):
         return f"\nself.scopes:\n{self.scopes}\nself.unused_scoes:\n{self.unused_scopes}\nself.global_scope:{self.global_scope}"
 
