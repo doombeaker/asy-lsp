@@ -77,14 +77,15 @@ class AsyLspServer(LanguageServer):
 
     def __init__(self):
         super().__init__()
-        self.parsed_files = {}
+        self.parsed_files = {} #(fileuri:(fileparsed, time))
+        self.last_change_time = {} #(fileuri: time)
 
     def parse_file(self, file_uri):
         file_path = to_fs_path(file_uri)
         file = FileParsed(file_path)
         file.parse()
         file.construct_jump_table()
-        self.parsed_files[file_uri] = file
+        self.parsed_files[file_uri] = (file, time.time())
         return file
 
 
@@ -107,7 +108,11 @@ def defitions(
     dst_uri = params.text_document.uri
     if dst_uri not in asy_lsp_server.parsed_files.keys():
         asy_lsp_server.parse_file(dst_uri)
-    file = asy_lsp_server.parsed_files[dst_uri]
+    
+    file, last_time = asy_lsp_server.parsed_files[dst_uri]
+    if last_time < asy_lsp_server.last_change_time[dst_uri]:
+        file = asy_lsp_server.parse_file(dst_uri)
+
     line, column = params.position.line + 1, params.position.character + 1
     pos = file.find_definiton(line, column)
 
@@ -127,7 +132,7 @@ def defitions(
 def did_change(ls, params: DidChangeTextDocumentParams):
     """Text document did change notification."""
     dst_uri = params.text_document.uri
-    _parse_file(dst_uri)
+    asy_lsp_server.last_change_time[dst_uri] = time.time()
 
 
 @asy_lsp_server.feature(TEXT_DOCUMENT_DID_CLOSE)
@@ -139,8 +144,9 @@ def did_close(server: AsyLspServer, params: DidCloseTextDocumentParams):
 @asy_lsp_server.feature(TEXT_DOCUMENT_DID_OPEN)
 async def did_open(ls, params: DidOpenTextDocumentParams):
     file_uri = params.text_document.uri
-    if file_uri not in parsed_files.keys():
-        _parse_file(file_uri)
+    if file_uri not in asy_lsp_server.parsed_files.keys():
+        asy_lsp_server.parse_file(file_uri)
+    asy_lsp_server.last_change_time[file_uri] = time.time()
     ls.show_message("Text Document Did Open")
 
 
