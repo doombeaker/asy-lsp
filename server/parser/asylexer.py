@@ -308,5 +308,3 @@ def t_newline(t):
 # Error handler for illegal characters
 def t_error(t):
     print(f"Illegal character {t.value[0]!r}, line:{t.lexer.lineno}")
-    raise SyntaxError("Illegal character")
-    t.lexer.skip(1)

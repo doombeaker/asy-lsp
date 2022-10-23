@@ -6,3 +6,5 @@ client/server
 env
 *.log
 __pycache__/
+sample.asy
+parser.out
