@@ -560,12 +560,10 @@ def p_formals_1(p):
     p[0] = [p[1]]
 
 
-
 def p_formals_2(p):
     """formals : ELLIPSIS formal"""
     printlog("formals-ELLIPSIS-formal", p[2])
     p[0] = [p[2]]
-
 
 
 def p_formals_3(p):
