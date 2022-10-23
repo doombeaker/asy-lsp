@@ -610,19 +610,25 @@ def p_formal_2(p):
 def p_formal_3(p):
     """formal : explicitornot type decidstart ASSIGN varinit"""
     p[2]["type"] = "PARA_TYPE"
-    # p[3]["type"] = p[2]
+    p[3]["type"] = "PARAMETER"
     p[0] = (p[2], p[3])
     # { $$ = new formal($2->getPos(), $2, $3, $5, $1, 0); }
 
 
 def p_formal_4(p):
     """formal : explicitornot type ID decidstart"""
+    p[2]["type"] = "PARA_TYPE"
+    p[4]["type"] = "PARAMETER"
+    p[0] = (p[2], p[4])
     # { bool k = checkKeyword($3.pos, $3.sym);
     #                      $$ = new formal($2->getPos(), $2, $4, 0, $1, k); }
 
 
 def p_formal_5(p):
     """formal : explicitornot type ID decidstart ASSIGN varinit"""
+    p[2]["type"] = "PARA_TYPE"
+    p[4]["type"] = "PARAMETER"
+    p[0] = (p[2], p[4])
     # { bool k = checkKeyword($3.pos, $3.sym);
     #                      $$ = new formal($2->getPos(), $2, $4, $6, $1, k); }
 
