@@ -1211,7 +1211,7 @@ def p_stm_8(p):
 
 def p_stm_9(p):
     """stm : FOR '(' type ID ':' exp ')' stm"""
-    p[4]["scope"] = p.parser.scopes.current_scope
+    p[4]["scope"] = p.parser.states.scopes.current_scope
     # { $$ = new extendedForStm($1, $3, $4.sym, $6, $8); }
 
 
