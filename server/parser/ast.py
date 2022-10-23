@@ -129,4 +129,4 @@ if __name__ == "__main__":
 
     filepath = os.path.join(os.path.dirname(__file__), "sample.asy")
     run_parser(filepath)
-    # run_test_on_base()
+    run_test_on_base()
