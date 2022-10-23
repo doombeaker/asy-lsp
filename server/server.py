@@ -28,6 +28,8 @@ from pygls.lsp.methods import (
     TEXT_DOCUMENT_DID_CLOSE,
     TEXT_DOCUMENT_DID_OPEN,
     DEFINITION,
+    FORMATTING,
+    RANGE_FORMATTING,
 )
 from pygls.lsp.types import (
     CompletionItem,
@@ -37,29 +39,17 @@ from pygls.lsp.types import (
     DefinitionParams,
     DefinitionOptions,
     Location,
-    LocationLink,
     ConfigurationItem,
     ConfigurationParams,
-    Diagnostic,
     DidChangeTextDocumentParams,
     DidCloseTextDocumentParams,
     DidOpenTextDocumentParams,
-    MessageType,
+    DocumentFormattingOptions,
     Position,
     Range,
-    Registration,
-    RegistrationParams,
-    SemanticTokens,
-    SemanticTokensLegend,
-    SemanticTokensParams,
-    Unregistration,
-    UnregistrationParams,
+    TextEdit,
 )
-from pygls.lsp.types.basic_structures import (
-    WorkDoneProgressBegin,
-    WorkDoneProgressEnd,
-    WorkDoneProgressReport,
-)
+
 from pygls.server import LanguageServer
 
 from .completionitems import keywords_and_builtin_types
@@ -77,8 +67,8 @@ class AsyLspServer(LanguageServer):
 
     def __init__(self):
         super().__init__()
-        self.parsed_files = {} #(fileuri:(fileparsed, time))
-        self.last_change_time = {} #(fileuri: time)
+        self.parsed_files = {}  # (fileuri:(fileparsed, time))
+        self.last_change_time = {}  # (fileuri: time)
 
     def parse_file(self, file_uri):
         file_path = to_fs_path(file_uri)
@@ -91,6 +81,49 @@ class AsyLspServer(LanguageServer):
 
 asy_lsp_server = AsyLspServer()
 
+from . import formatter
+
+
+@asy_lsp_server.feature(RANGE_FORMATTING)
+def range_formatting(params):
+    dst_uri = params.text_document.uri
+    file_path = to_fs_path(dst_uri)
+    start_line, start_column = (
+        params.range.start.line + 1,
+        params.range.start.character + 1,
+    )
+    end_line, end_column = params.range.end.line + 1, params.range.end.character + 1
+
+    formatted_text = formatter.format_code_range(
+        file_path, start_line, start_column, end_line, end_column
+    )
+
+    if formatted_text is not None:
+        return [TextEdit(range=params.range, new_text=formatted_text)]
+    return None
+
+
+@asy_lsp_server.feature(
+    FORMATTING,
+    DocumentFormattingOptions(),
+)
+def formatting(params):
+    dst_uri = params.text_document.uri
+    file_path = to_fs_path(dst_uri)
+    formatted_text = formatter.format_code(file_path)
+
+    if formatted_text is not None:
+        return [
+            TextEdit(
+                range=Range(
+                    start=Position(line=0, character=0),
+                    end=Position(line=999999, character=999999),
+                ),
+                new_text=formatted_text,
+            )
+        ]
+    return None
+
 
 @asy_lsp_server.feature(COMPLETION, CompletionOptions())
 def completions(params: Optional[CompletionParams] = None) -> CompletionList:
@@ -102,13 +135,11 @@ def completions(params: Optional[CompletionParams] = None) -> CompletionList:
 
 
 @asy_lsp_server.feature(DEFINITION, DefinitionOptions())
-def defitions(
-    params: DefinitionParams,
-):
+def defitions(params: DefinitionParams) -> Optional[Location]:
     dst_uri = params.text_document.uri
     if dst_uri not in asy_lsp_server.parsed_files.keys():
         asy_lsp_server.parse_file(dst_uri)
-    
+
     file, last_time = asy_lsp_server.parsed_files[dst_uri]
     if last_time < asy_lsp_server.last_change_time[dst_uri]:
         file = asy_lsp_server.parse_file(dst_uri)
