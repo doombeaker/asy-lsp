@@ -452,12 +452,11 @@ def p_decidstart_3(p):
     """decidstart : ID '(' ')'"""
     p[1]["type"] = "FUNCTION"
     p[0] = p[1]
-    # { $$ = new fundecidstart($1.pos, $1.sym, 0,
-    #                                             new formals($2)); }
 
 
 def p_decidstart_4(p):
     """decidstart : ID '(' formals ')'"""
+    printlog("decidstart-ID-formals")
     p[1]["type"] = "FUNCTION"
     p[0] = p[1]
     # { $$ = new fundecidstart($1.pos, $1.sym, 0, $3); }
@@ -557,18 +556,21 @@ def p_varinits_2(p):
 
 def p_formals_1(p):
     """formals : formal"""
+    printlog("formals-formal")
     p[0] = [p[1]]
-    # { $$ = new formals($1->getPos()); $$->add($1); }
+
 
 
 def p_formals_2(p):
     """formals : ELLIPSIS formal"""
-    p[0] = [p[1]]
-    # { $$ = new formals($1); $$->addRest($2); }
+    printlog("formals-ELLIPSIS-formal", p[2])
+    p[0] = [p[2]]
+
 
 
 def p_formals_3(p):
     """formals : formals ',' formal"""
+    printlog("formals-formals-formal")
     p[0] = p[1]
     p[0].append(p[3])
     # { $$ = $1; $$->add($3); }
@@ -576,6 +578,7 @@ def p_formals_3(p):
 
 def p_formals_4(p):
     """formals : formals ELLIPSIS formal"""
+    printlog("formals: formals ... formal")
     p[0] = p[1]
     p[0].append(p[3])
     # { $$ = $1; $$->addRest($3); }
@@ -594,31 +597,25 @@ def p_explicitornot_2(p):
 def p_formal_1(p):
     """formal : explicitornot type"""
     p[0] = p[2]
-    p[2]["type"] = "PARA_TYPE"
     p[0] = (p[2], None)
     # { $$ = new formal($2->getPos(), $2, 0, 0, $1, 0); }
 
 
 def p_formal_2(p):
     """formal : explicitornot type decidstart"""
-    p[2]["type"] = "PARA_TYPE"
-    p[3]["type"] = "PARAMETER"
+    printlog("formal-explicitornot-type-decidstart", p[2], p[3])
     p[0] = (p[2], p[3])
     # { $$ = new formal($2->getPos(), $2, $3, 0, $1, 0); }
 
 
 def p_formal_3(p):
     """formal : explicitornot type decidstart ASSIGN varinit"""
-    p[2]["type"] = "PARA_TYPE"
-    p[3]["type"] = "PARAMETER"
     p[0] = (p[2], p[3])
     # { $$ = new formal($2->getPos(), $2, $3, $5, $1, 0); }
 
 
 def p_formal_4(p):
     """formal : explicitornot type ID decidstart"""
-    p[2]["type"] = "PARA_TYPE"
-    p[4]["type"] = "PARAMETER"
     p[0] = (p[2], p[4])
     # { bool k = checkKeyword($3.pos, $3.sym);
     #                      $$ = new formal($2->getPos(), $2, $4, 0, $1, k); }
@@ -626,8 +623,6 @@ def p_formal_4(p):
 
 def p_formal_5(p):
     """formal : explicitornot type ID decidstart ASSIGN varinit"""
-    p[2]["type"] = "PARA_TYPE"
-    p[4]["type"] = "PARAMETER"
     p[0] = (p[2], p[4])
     # { bool k = checkKeyword($3.pos, $3.sym);
     #                      $$ = new formal($2->getPos(), $2, $4, $6, $1, k); }
@@ -641,27 +636,25 @@ def p_fundec_1(p):
     p[0] = p[2]
 
     p.parser.states.add_symbol(p[1], p[2])
-    # { $$ = new fundec($3, $1, $2.sym, new formals($3), $5); }
 
 
 def p_fundec_2(p):
     """fundec : type ID '(' formals ')' blockstm"""
+    printlog("fundec:with args", p[4])
     p[1]["type"] = "TYPE"
     p[2]["type"] = "FUNCTION"
     p[0] = p[2]
 
     p.parser.states.add_symbol(p[1], p[2])
 
-    # function paramters belongs to <blockstm> scope
-    for type, param in p[4]:
-        printlog("param", type, param)
-        type["scope"] = p[6]
-        type["type"] = "TYPE"
+    for param_type, param in p[4]:
+        printlog("param", param_type, param)
+        param_type["scope"] = p[6]
+        param_type["type"] = "PARA_TYPE"
         if param is not None:
             param["scope"] = p[6]
             param["type"] = "PARAMETER"
-        p[6].add_symbol(type, param)
-    # { $$ = new fundec($3, $1, $2.sym, $4, $6); }
+        p[6].add_symbol(param_type, param)
 
 
 def p_typedec_1(p):
@@ -762,22 +755,25 @@ def p_value_12(p):
 
 def p_argument_1(p):
     """argument : exp"""
-    # { $$.name = symbol::nullsym; $$.val=$1; }
+    p[0] = p[1]
+    printlog("argument-exp", p[1])
 
 
 def p_argument_2(p):
     """argument : ID ASSIGN exp"""
+    printlog("argument-id=exp", *p[1:])
+    p[0] = p[1]
     # { $$.name = $1.sym; $$.val=$3; }
 
 
 def p_arglist_1(p):
     """arglist : argument"""
-    # { $$ = new arglist(); $$->add($1); }
+    printlog("arglist-argument", p[1])
 
 
 def p_arglist_2(p):
     """arglist : ELLIPSIS argument"""
-    # { $$ = new arglist(); $$->addRest($2); }
+    printlog("arglist-...")
 
 
 def p_arglist_3(p):
@@ -787,6 +783,7 @@ def p_arglist_3(p):
 
 def p_arglist_4(p):
     """arglist : arglist ELLIPSIS argument"""
+    printlog("arglist-...-argument", *p[1:])
     # { $$ = $1; $$->addRest($3); }
 
 
