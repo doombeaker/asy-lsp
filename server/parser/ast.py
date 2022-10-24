@@ -127,6 +127,6 @@ def run_lex_and_parser(filepath):
 if __name__ == "__main__":
     import os
 
-    filepath = os.path.join(os.path.dirname(__file__), "..", "sample.asy")
+    filepath = os.path.join(os.path.dirname(__file__), "..", "test","asyfiles", "sample.asy")
     run_parser(filepath)
     # run_test_on_base()

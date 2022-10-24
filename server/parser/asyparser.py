@@ -30,6 +30,7 @@ class Scope(object):
         prev=None,
         next=None,
     ) -> None:
+        self.name = None # anonymous scope is None
         self.symbols = {}
         self.start = start
         self.end = end
@@ -39,9 +40,13 @@ class Scope(object):
         self.parent = parent  # parent scope
         self.prev = prev  # prev block scope in same depth
         self.next = next  # next block scope in same depth
+        self.children = []  # children scopes
 
         if self.prev:
             self.prev.next = self
+
+    def add_child_scope(self, scope):
+        self.children.append(scope)
 
     def add_symbol(self, *tokens):
         for token in tokens:
@@ -54,7 +59,7 @@ class Scope(object):
                 self.symbols.pop(token["position"])
 
     def __repr__(self) -> str:
-        return f"<Scope DEPTH:{self.depth} ({self.start}~{self.end}) SYMBOLS: {[(v['position'],v['value'], v['type']) for v in self.symbols.values()]}>"
+        return f"<Scope {self.name} len(children):{len(self.children)} DEPTH:{self.depth} ({self.start}~{self.end}) SYMBOLS: {[(v['position'],v['value'], v['type']) for v in self.symbols.values()]}>"
 
 
 class Scopes(object):
@@ -489,6 +494,7 @@ def p_block_begin(p):
         prev=prev,
         next=None,
     )
+    scopes.current_scope.add_child_scope(new_scope)
     scopes.push_scope(new_scope)
 
 
@@ -635,6 +641,8 @@ def p_fundec_1(p):
 
     p.parser.states.add_symbol(p[1], p[2])
 
+    # setting scopes relationship
+    p[5].name = p[2]["value"]
 
 def p_fundec_2(p):
     """fundec : type ID '(' formals ')' blockstm"""
@@ -653,6 +661,9 @@ def p_fundec_2(p):
             param["scope"] = p[6]
             param["type"] = "PARAMETER"
         p[6].add_symbol(param_type, param)
+
+    # setting scopes relationship
+    p[6].name = p[2]["value"]
 
 
 def p_typedec_1(p):
