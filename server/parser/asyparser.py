@@ -668,6 +668,11 @@ def p_fundec_2(p):
 
 def p_typedec_1(p):
     """typedec : STRUCT ID block"""
+    p[3].name = p[2]["value"]
+    p[2]["type"] = "STRUCT"
+
+    p.parser.states.add_symbol(p[2])
+    
     # { $$ = new recorddec($1, $2.sym, $3); }
 
 
