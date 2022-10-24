@@ -1,4 +1,5 @@
 import subprocess
+import re
 
 
 def format_code_range(file_path, start_line, start_column, end_line, end_column):
@@ -27,7 +28,8 @@ def format_code_range(file_path, start_line, start_column, end_line, end_column)
     stdout, stderr = p.communicate(code.encode())
     if p.returncode != 0:
         return None
-    return stdout.decode()
+    clang_passed_text = stdout.decode()
+    return asy_pass(clang_passed_text)
 
 
 def format_code(file_path):
@@ -41,15 +43,25 @@ def format_code(file_path):
     stdout, stderr = p.communicate()
     if p.returncode != 0:
         return None
-    return stdout.decode()
+    clang_passed_text = stdout.decode()
+
+    return asy_pass(clang_passed_text)
+
+
+def asy_pass(clang_passed_text: str):
+    clang_passed_text = clang_passed_text.replace("-- ", " --")
+
+    # ^^ --clang-> ^ ^
+    # ^ ^ --asy pass -> ^^ are needed
+    reg = re.compile(r"\^[\t \r\n]*\^")
+    clang_passed_text = reg.sub(r"^^", clang_passed_text)
+    return clang_passed_text
 
 
 def main():
     import os
 
-    file_path = os.path.join(os.path.dirname(__file__), "sample.asy")
-    code_formatted = format_code_range(file_path, 3, 4, 4, 11)
-    print(code_formatted)
+    result = format_code(r"C:\mygithub\asy-lsp\server\sample.asy")
 
 
 if __name__ == "__main__":
