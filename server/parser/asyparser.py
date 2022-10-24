@@ -29,12 +29,14 @@ class Scope(object):
         parent=None,
         prev=None,
         next=None,
+        scopes = None,
     ) -> None:
         self.name = None # anonymous scope is None
         self.symbols = {}
         self.start = start
         self.end = end
         self.depth = depth
+        self.scopes = scopes
 
         # link the scopes
         self.parent = parent  # parent scope
@@ -49,9 +51,11 @@ class Scope(object):
         self.children.append(scope)
 
     def add_symbol(self, *tokens):
+        self.scopes.fileparsed.all_tokens.extend(tokens)
         for token in tokens:
             if token is not None:
                 self.symbols[token["position"]] = token
+        
 
     def pop_symbol(self, *tokens):
         for token in tokens:
@@ -72,14 +76,13 @@ class Scopes(object):
 
         self.scope_depth = 0  # depth of global scope is 0
         self.last_scopes[self.scope_depth] = None
-        self.push_scope(Scope(depth=self.scope_depth))
+        self.push_scope(Scope(depth=self.scope_depth, scopes=self))
         self.global_scope = self.current_scope
 
     def add_symbol(self, *tokens):
         if self.current_scope is None:
             self.global_scope.add_symbol(*tokens)
         self.current_scope.add_symbol(*tokens)
-        # self._add_to_depth_symbols(self.scope_depth, symbol)
 
     def push_scope(self, scope):
         self.scopes.append(scope)
@@ -160,20 +163,14 @@ def p_name_1(p):
     p[1]["scope"] = p.parser.states.scopes.current_scope
     p[0] = p[1]
 
-    p.parser.states.scopes.current_scope.add_symbol(p[1])
-    # { $$ = new simpleName($1.pos, $1.sym); }
-
-
 def p_name_2(p):
     """name : name '.' ID"""
     printlog("name-name-ID", *p[1:])
-    p[3]["value"] = ".".join([p[1]["value"], p[3]["value"]])
-    p[3]["type"] = p[1]
-
-    p[0] = p[3]
-
-    p.parser.states.add_symbol(p[1])
-    # { $$ = new qualifiedName($2, $1, $3.sym); }
+    p[1]["value"] = ".".join([p[1]["value"], p[3]["value"]])
+    p[1]["type"] = "NESTED_NAME"
+    p[1]["len"] = len(p[1]["value"])
+    p[0] = p[1]
+    print("!!!", p[0])
 
 
 def p_name_3(p):
@@ -493,6 +490,7 @@ def p_block_begin(p):
         parent=scopes.current_scope,
         prev=prev,
         next=None,
+        scopes=scopes
     )
     scopes.current_scope.add_child_scope(new_scope)
     scopes.push_scope(new_scope)
@@ -814,10 +812,9 @@ def p_tuple_2(p):
 def p_exp_1(p):
     """exp : name"""
     printlog("exp-name:", *p[1:])
-    # p[1]["type"] = "NAME"
     p[0] = p[1]
 
-    # { $$ = new nameExp($1->getPos(), $1); }
+    p.parser.states.add_symbol(p[1])
 
 
 def p_exp_2(p):

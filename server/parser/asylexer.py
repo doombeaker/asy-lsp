@@ -202,8 +202,8 @@ def t_operatorID(t):
         "len": len(t.value),
         "type": "ID",
     }
-    if hasattr(t.lexer, "all_tokens"):
-        t.lexer.states.all_tokens.append(t.value)
+    if hasattr(t.lexer, "states"):
+        t.value["scope"] = t.lexer.states.scopes.current_scope
     return t
 
 
@@ -221,7 +221,7 @@ def t_ID(t):
     }
     if hasattr(t.lexer, "states"):
         t.value["scope"] = t.lexer.states.scopes.current_scope
-        t.lexer.states.all_tokens.append(t.value)
+
     return t
 
 
@@ -236,8 +236,7 @@ def t_lbrace(t):
         "len": len(t.value),
         "type": None,
     }
-    if hasattr(t.lexer, "states"):
-        t.lexer.states.all_tokens.append(t.value)
+
     return t
 
 
@@ -252,9 +251,6 @@ def t_rbrace(t):
         "len": len(t.value),
         "type": None,
     }
-    if hasattr(t.lexer, "states"):
-        scopes = t.lexer.states.scopes
-        t.lexer.states.all_tokens.append(t.value)
     return t
 
 

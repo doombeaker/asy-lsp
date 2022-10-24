@@ -14,6 +14,7 @@ class FileParsed(object):
         self.file_path = file
         self.imported_files = []
         self.scopes = Scopes()
+        self.scopes.fileparsed = self
         self.lexer = lex()
         self.lexer.states = self
         self.all_tokens = []
