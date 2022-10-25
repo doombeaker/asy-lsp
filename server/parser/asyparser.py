@@ -29,9 +29,9 @@ class Scope(object):
         parent=None,
         prev=None,
         next=None,
-        scopes = None,
+        scopes=None,
     ) -> None:
-        self.name = None # anonymous scope is None
+        self.name = None  # anonymous scope is None
         self.symbols = {}
         self.start = start
         self.end = end
@@ -51,11 +51,10 @@ class Scope(object):
         self.children.append(scope)
 
     def add_symbol(self, *tokens):
-        self.scopes.fileparsed.all_tokens.extend(tokens)
         for token in tokens:
             if token is not None:
+                self.scopes.fileparsed.all_tokens.append(token)
                 self.symbols[token["position"]] = token
-        
 
     def pop_symbol(self, *tokens):
         for token in tokens:
@@ -63,7 +62,9 @@ class Scope(object):
                 self.symbols.pop(token["position"])
 
     def __repr__(self) -> str:
-        return f"<Scope {self.name} len(children):{len(self.children)} DEPTH:{self.depth} ({self.start}~{self.end}) SYMBOLS: {[(v['position'],v['value'], v['type']) for v in self.symbols.values()]}>"
+        ret_str = f"<Scope {self.name} len(children):{len(self.children)} DEPTH:{self.depth} ({self.start}~{self.end}) SYMBOLS: {[(v['position'],v['value'], v['type']) for v in self.symbols.values()]}>"
+        ret_str_empty = ""
+        return ret_str
 
 
 class Scopes(object):
@@ -163,6 +164,7 @@ def p_name_1(p):
     p[1]["scope"] = p.parser.states.scopes.current_scope
     p[0] = p[1]
 
+
 def p_name_2(p):
     """name : name '.' ID"""
     printlog("name-name-ID", *p[1:])
@@ -170,7 +172,6 @@ def p_name_2(p):
     p[1]["type"] = "NESTED_NAME"
     p[1]["len"] = len(p[1]["value"])
     p[0] = p[1]
-    print("!!!", p[0])
 
 
 def p_name_3(p):
@@ -490,7 +491,7 @@ def p_block_begin(p):
         parent=scopes.current_scope,
         prev=prev,
         next=None,
-        scopes=scopes
+        scopes=scopes,
     )
     scopes.current_scope.add_child_scope(new_scope)
     scopes.push_scope(new_scope)
@@ -642,6 +643,7 @@ def p_fundec_1(p):
     # setting scopes relationship
     p[5].name = p[2]["value"]
 
+
 def p_fundec_2(p):
     """fundec : type ID '(' formals ')' blockstm"""
     printlog("fundec:with args", p[4])
@@ -670,7 +672,7 @@ def p_typedec_1(p):
     p[2]["type"] = "STRUCT"
 
     p.parser.states.add_symbol(p[2])
-    
+
     # { $$ = new recorddec($1, $2.sym, $3); }
 
 
@@ -706,6 +708,7 @@ def p_value_1(p):
 
 def p_value_2(p):
     """value : name '[' exp ']'"""
+    printlog("value-name-exp", p[1], p[3])
     # { $$ = new subscriptExp($2,
     #                               new nameExp($1->getPos(), $1), $3); }
 
@@ -727,12 +730,12 @@ def p_value_5(p):
 
 
 def p_value_6(p):
-    """value : name '(' ')' """
+    """value : name '(' ')'"""
     p.parser.states.add_symbol(p[1])
 
 
 def p_value_7(p):
-    """value : name '(' arglist ')' """
+    """value : name '(' arglist ')'"""
     printlog("value-name-arglist", p[3])
     p.parser.states.add_symbol(p[1])
 
@@ -817,7 +820,7 @@ def p_exp_1(p):
 
 def p_exp_2(p):
     """exp : value"""
-    printlog("exp-name:", *p[1:])
+    printlog("exp-value:", *p[1:])
     p[0] = p[1]
     # { $$ = $1; }
 
