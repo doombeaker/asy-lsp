@@ -21,6 +21,12 @@ class FileParsed(object):
         self.ast = None
         self.parser = yacc(start="file")
         self.parser.states = self
+
+        # jump talbe is a dict of dicts
+        # the first level is the line number
+        # the second level is a tuple of (start, end) of column numbers
+        # the item saved in the second level is the declare token
+        # declare token is a dict with keys: value, type, position, len
         self.jump_table = {}
 
     def find_definiton(self, line, column):
@@ -48,7 +54,6 @@ class FileParsed(object):
     def construct_jump_table(self):
         for token in self.all_tokens:
             if token["type"] == "ID":
-                # import pdb; pdb.set_trace()
                 dec = self._find_dec(token)
                 if dec is not None:
                     printlog(
@@ -59,7 +64,7 @@ class FileParsed(object):
                     if line not in self.jump_table.keys():
                         self.jump_table[line] = {}
                     current_line = self.jump_table[line]
-                    current_line[(column_start, column_end)] = dec["position"]
+                    current_line[(column_start, column_end)] = dec
                 else:
                     printlog(
                         f"Declaration of ({token['value']}, {token['position']}) not found"

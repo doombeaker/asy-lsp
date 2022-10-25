@@ -145,14 +145,15 @@ def defitions(params: DefinitionParams) -> Optional[Location]:
         file = asy_lsp_server.parse_file(dst_uri)
 
     line, column = params.position.line + 1, params.position.character + 1
-    pos = file.find_definiton(line, column)
-
-    if pos is not None:
+    definition_token = file.find_definiton(line, column)
+    if definition_token is not None:
+        position = definition_token["position"]
+        len = definition_token["len"]
         return Location(
             uri=dst_uri,
             range=Range(
-                start=Position(line=pos[0] - 1, character=pos[1] - 1),
-                end=Position(line=pos[0] - 1, character=pos[1]),
+                start=Position(line=position[0] - 1, character=position[1] - 1),
+                end=Position(line=position[0] - 1, character=position[1] - 1 + len),
             ),
         )
 
