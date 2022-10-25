@@ -19,6 +19,8 @@ import re
 import time
 import uuid
 from typing import Optional
+
+from pytest import param
 from .parser.ast import FileParsed
 from pygls.uris import from_fs_path, to_fs_path
 
@@ -30,6 +32,7 @@ from pygls.lsp.methods import (
     DEFINITION,
     FORMATTING,
     RANGE_FORMATTING,
+    DOCUMENT_SYMBOL,
 )
 from pygls.lsp.types import (
     CompletionItem,
@@ -45,9 +48,12 @@ from pygls.lsp.types import (
     DidCloseTextDocumentParams,
     DidOpenTextDocumentParams,
     DocumentFormattingOptions,
+    DocumentSymbolOptions,
     Position,
     Range,
     TextEdit,
+    DocumentSymbol,
+    SymbolKind,
 )
 
 from pygls.server import LanguageServer
@@ -82,6 +88,41 @@ class AsyLspServer(LanguageServer):
 asy_lsp_server = AsyLspServer()
 
 from . import formatter
+
+
+@asy_lsp_server.feature(DOCUMENT_SYMBOL, DocumentSymbolOptions())
+def document_symbol(params):
+    # import pdb;pdb.set_trace()
+    file_uri = params.text_document.uri
+    try_parse(file_uri)
+    all_tokens_found = []
+    for token in asy_lsp_server.parsed_files[file_uri][0].all_tokens:
+        if token["type"] in ("STRUCT", "FUNCTION"):
+            all_tokens_found.append(token)
+    return_list = [
+        DocumentSymbol(
+            name=t["value"],
+            kind=SymbolKind.Object,
+            range=Range(
+                start=Position(
+                    line=t["position"][0] - 1, character=t["position"][1] - 1
+                ),
+                end=Position(
+                    line=t["position"][0] - 1, character=t["position"][1] + t["len"]
+                ),
+            ),
+            selection_range=Range(
+                start=Position(
+                    line=t["position"][0] - 1, character=t["position"][1] - 1
+                ),
+                end=Position(
+                    line=t["position"][0] - 1, character=t["position"][1] + t["len"]
+                ),
+            ),
+        )
+        for t in all_tokens_found
+    ]
+    return return_list
 
 
 @asy_lsp_server.feature(RANGE_FORMATTING)
@@ -137,22 +178,22 @@ def completions(params: Optional[CompletionParams] = None) -> CompletionList:
 @asy_lsp_server.feature(DEFINITION, DefinitionOptions())
 def defitions(params: DefinitionParams) -> Optional[Location]:
     dst_uri = params.text_document.uri
-    if dst_uri not in asy_lsp_server.parsed_files.keys():
-        asy_lsp_server.parse_file(dst_uri)
+    try_parse(dst_uri)
 
     file, last_time = asy_lsp_server.parsed_files[dst_uri]
     if last_time < asy_lsp_server.last_change_time[dst_uri]:
         file = asy_lsp_server.parse_file(dst_uri)
 
     line, column = params.position.line + 1, params.position.character + 1
-    pos = file.find_definiton(line, column)
-
-    if pos is not None:
+    definition_token = file.find_definiton(line, column)
+    if definition_token is not None:
+        position = definition_token["position"]
+        len = definition_token["len"]
         return Location(
             uri=dst_uri,
             range=Range(
-                start=Position(line=pos[0] - 1, character=pos[1] - 1),
-                end=Position(line=pos[0] - 1, character=pos[1]),
+                start=Position(line=position[0] - 1, character=position[1] - 1),
+                end=Position(line=position[0] - 1, character=position[1] - 1 + len),
             ),
         )
 
@@ -172,11 +213,15 @@ def did_close(server: AsyLspServer, params: DidCloseTextDocumentParams):
     server.show_message("Text Document Did Close")
 
 
+def try_parse(file_uri):
+    if file_uri not in asy_lsp_server.parsed_files.keys():
+        asy_lsp_server.parse_file(file_uri)
+
+
 @asy_lsp_server.feature(TEXT_DOCUMENT_DID_OPEN)
 async def did_open(ls, params: DidOpenTextDocumentParams):
     file_uri = params.text_document.uri
-    if file_uri not in asy_lsp_server.parsed_files.keys():
-        asy_lsp_server.parse_file(file_uri)
+    try_parse(file_uri)
     asy_lsp_server.last_change_time[file_uri] = time.time()
     ls.show_message("Text Document Did Open")
 

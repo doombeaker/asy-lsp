@@ -29,23 +29,31 @@ class Scope(object):
         parent=None,
         prev=None,
         next=None,
+        scopes=None,
     ) -> None:
+        self.name = None  # anonymous scope is None
         self.symbols = {}
         self.start = start
         self.end = end
         self.depth = depth
+        self.scopes = scopes
 
         # link the scopes
         self.parent = parent  # parent scope
         self.prev = prev  # prev block scope in same depth
         self.next = next  # next block scope in same depth
+        self.children = []  # children scopes
 
         if self.prev:
             self.prev.next = self
 
+    def add_child_scope(self, scope):
+        self.children.append(scope)
+
     def add_symbol(self, *tokens):
         for token in tokens:
             if token is not None:
+                self.scopes.fileparsed.all_tokens.append(token)
                 self.symbols[token["position"]] = token
 
     def pop_symbol(self, *tokens):
@@ -54,7 +62,9 @@ class Scope(object):
                 self.symbols.pop(token["position"])
 
     def __repr__(self) -> str:
-        return f"<Scope DEPTH:{self.depth} ({self.start}~{self.end}) SYMBOLS: {[(v['position'],v['value'], v['type']) for v in self.symbols.values()]}>"
+        ret_str = f"<Scope {self.name} len(children):{len(self.children)} DEPTH:{self.depth} ({self.start}~{self.end}) SYMBOLS: {[(v['position'],v['value'], v['type']) for v in self.symbols.values()]}>"
+        ret_str_empty = ""
+        return ret_str
 
 
 class Scopes(object):
@@ -67,14 +77,13 @@ class Scopes(object):
 
         self.scope_depth = 0  # depth of global scope is 0
         self.last_scopes[self.scope_depth] = None
-        self.push_scope(Scope(depth=self.scope_depth))
+        self.push_scope(Scope(depth=self.scope_depth, scopes=self))
         self.global_scope = self.current_scope
 
     def add_symbol(self, *tokens):
         if self.current_scope is None:
             self.global_scope.add_symbol(*tokens)
         self.current_scope.add_symbol(*tokens)
-        # self._add_to_depth_symbols(self.scope_depth, symbol)
 
     def push_scope(self, scope):
         self.scopes.append(scope)
@@ -155,20 +164,14 @@ def p_name_1(p):
     p[1]["scope"] = p.parser.states.scopes.current_scope
     p[0] = p[1]
 
-    p.parser.states.scopes.current_scope.add_symbol(p[1])
-    # { $$ = new simpleName($1.pos, $1.sym); }
-
 
 def p_name_2(p):
     """name : name '.' ID"""
     printlog("name-name-ID", *p[1:])
-    p[3]["value"] = ".".join([p[1]["value"], p[3]["value"]])
-    p[3]["type"] = p[1]
-
-    p[0] = p[3]
-
-    p.parser.states.add_symbol(p[1])
-    # { $$ = new qualifiedName($2, $1, $3.sym); }
+    p[1]["value"] = ".".join([p[1]["value"], p[3]["value"]])
+    p[1]["type"] = "NESTED_NAME"
+    p[1]["len"] = len(p[1]["value"])
+    p[0] = p[1]
 
 
 def p_name_3(p):
@@ -488,7 +491,9 @@ def p_block_begin(p):
         parent=scopes.current_scope,
         prev=prev,
         next=None,
+        scopes=scopes,
     )
+    scopes.current_scope.add_child_scope(new_scope)
     scopes.push_scope(new_scope)
 
 
@@ -635,6 +640,9 @@ def p_fundec_1(p):
 
     p.parser.states.add_symbol(p[1], p[2])
 
+    # setting scopes relationship
+    p[5].name = p[2]["value"]
+
 
 def p_fundec_2(p):
     """fundec : type ID '(' formals ')' blockstm"""
@@ -654,9 +662,17 @@ def p_fundec_2(p):
             param["type"] = "PARAMETER"
         p[6].add_symbol(param_type, param)
 
+    # setting scopes relationship
+    p[6].name = p[2]["value"]
+
 
 def p_typedec_1(p):
     """typedec : STRUCT ID block"""
+    p[3].name = p[2]["value"]
+    p[2]["type"] = "STRUCT"
+
+    p.parser.states.add_symbol(p[2])
+
     # { $$ = new recorddec($1, $2.sym, $3); }
 
 
@@ -692,6 +708,7 @@ def p_value_1(p):
 
 def p_value_2(p):
     """value : name '[' exp ']'"""
+    printlog("value-name-exp", p[1], p[3])
     # { $$ = new subscriptExp($2,
     #                               new nameExp($1->getPos(), $1), $3); }
 
@@ -714,20 +731,18 @@ def p_value_5(p):
 
 def p_value_6(p):
     """value : name '(' ')'"""
-    # { $$ = new callExp($2,
-    #                                       new nameExp($1->getPos(), $1),
-    #                                       new arglist()); }
+    p.parser.states.add_symbol(p[1])
 
 
 def p_value_7(p):
     """value : name '(' arglist ')'"""
-    # { $$ = new callExp($2,
-    #                                       new nameExp($1->getPos(), $1),
-    #                                       $3); }
+    printlog("value-name-arglist", p[3])
+    p.parser.states.add_symbol(p[1])
 
 
 def p_value_8(p):
     """value : value '(' ')'"""
+    printlog("value-name()", p[3])
     # { $$ = new callExp($2, $1, new arglist()); }
 
 
@@ -798,15 +813,14 @@ def p_tuple_2(p):
 def p_exp_1(p):
     """exp : name"""
     printlog("exp-name:", *p[1:])
-    # p[1]["type"] = "NAME"
     p[0] = p[1]
 
-    # { $$ = new nameExp($1->getPos(), $1); }
+    p.parser.states.add_symbol(p[1])
 
 
 def p_exp_2(p):
     """exp : value"""
-    printlog("exp-name:", *p[1:])
+    printlog("exp-value:", *p[1:])
     p[0] = p[1]
     # { $$ = $1; }
 
