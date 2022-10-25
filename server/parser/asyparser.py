@@ -727,21 +727,19 @@ def p_value_5(p):
 
 
 def p_value_6(p):
-    """value : name '(' ')'"""
-    # { $$ = new callExp($2,
-    #                                       new nameExp($1->getPos(), $1),
-    #                                       new arglist()); }
+    """value : name '(' ')' """
+    p.parser.states.add_symbol(p[1])
 
 
 def p_value_7(p):
-    """value : name '(' arglist ')'"""
-    # { $$ = new callExp($2,
-    #                                       new nameExp($1->getPos(), $1),
-    #                                       $3); }
+    """value : name '(' arglist ')' """
+    printlog("value-name-arglist", p[3])
+    p.parser.states.add_symbol(p[1])
 
 
 def p_value_8(p):
     """value : value '(' ')'"""
+    printlog("value-name()", p[3])
     # { $$ = new callExp($2, $1, new arglist()); }
 
 
