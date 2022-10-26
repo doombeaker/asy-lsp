@@ -1296,4 +1296,3 @@ def p_stmexplist_2(p):
 # Error rule for syntax errors
 def p_error(p):
     print(f"Syntax error at line:{p.lexer.lineno}")
-    # raise Error("Stop")
